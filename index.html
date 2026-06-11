@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+    <title>Kelmans Tanks vs Zombies</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- Mobile Controls -->
+        <div id="mobileControls" class="hidden">
+            <div id="moveJoystick" class="joystick">
+                <div id="moveKnob" class="knob"></div>
+            </div>
+            <div id="aimJoystick" class="joystick">
+                <div id="aimKnob" class="knob"></div>
+            </div>
+            <div id="mobileButtons">
+                <button id="bombBtn" class="mobile-btn">💣</button>
+                <button id="laserBtn" class="mobile-btn">⚡</button>
+            </div>
+        </div>
+
+        <!-- UI Overlay -->
+        <div id="uiOverlay">
+            <div id="hud" class="hidden">
+                <div id="topLeft">
+                    <div id="weaponInfo">
+                        <span id="currentWeapon">🔫 Bullets</span>
+                        <span id="bombCount">💣: 3</span>
+                        <span id="laserCount">⚡: 2</span>
+                    </div>
+                </div>
+                <div id="topRight">
+                    <div id="scoreInfo">
+                        <span id="score">Score: 0</span>
+                        <span id="wave">Wave: 1</span>
+                        <span id="money">💰 $0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Screens -->
+        <div id="startScreen" class="screen">
+            <h1>🎀 Kelmans Tanks vs Zombies 🎀</h1>
+            <p class="subtitle">Defend against the zombie horde!</p>
+            <div class="controls-info">
+                <h3>🖥️ PC Controls:</h3>
+                <p>Arrow Keys / WASD - Move</p>
+                <p>Mouse - Aim & Shoot</p>
+                <p>B - Drop Bomb</p>
+                <p>L - Fire Laser</p>
+                <h3>📱 Mobile Controls:</h3>
+                <p>Left Thumb - Move</p>
+                <p>Right Thumb - Aim & Shoot</p>
+                <p>Buttons - Special Weapons</p>
+            </div>
+            <button id="startBtn" class="big-btn">START GAME</button>
+        </div>
+
+        <div id="difficultyScreen" class="screen hidden">
+            <h2>⚔️ Choose Your Battle ⚔️</h2>
+            <p class="subtitle">Select difficulty level</p>
+            <div id="difficultyOptions">
+                <div class="difficulty-card" data-difficulty="easy">
+                    <h3>🌱 Easy</h3>
+                    <p>Fewer zombies, weaker enemies</p>
+                    <p>8 zombies per wave</p>
+                    <button class="difficulty-btn" data-difficulty="easy">SELECT</button>
+                </div>
+                <div class="difficulty-card" data-difficulty="medium">
+                    <h3>🔥 Medium</h3>
+                    <p>Standard challenge</p>
+                    <p>15 zombies per wave</p>
+                    <button class="difficulty-btn" data-difficulty="medium">SELECT</button>
+                </div>
+                <div class="difficulty-card" data-difficulty="epic">
+                    <h3>💀 Epic Battle of the Ages</h3>
+                    <p>Massive horde, brutal difficulty</p>
+                    <p>25 zombies per wave</p>
+                    <button class="difficulty-btn" data-difficulty="epic">SELECT</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="upgradeScreen" class="screen hidden">
+            <h2>🌟 Wave Complete! 🌟</h2>
+            <p id="upgradeScore">Score: 0 | Money: $0</p>
+            <div id="upgradeOptions">
+                <div class="upgrade-card" data-upgrade="bullet">
+                    <h3>🔫 Bullet Upgrade</h3>
+                    <p>Increase bullet damage & speed</p>
+                    <button class="upgrade-btn">Upgrade</button>
+                </div>
+                <div class="upgrade-card" data-upgrade="bomb">
+                    <h3>💣 Bomb Capacity</h3>
+                    <p>+1 bomb per level</p>
+                    <button class="upgrade-btn">Upgrade</button>
+                </div>
+                <div class="upgrade-card" data-upgrade="laser">
+                    <h3>⚡ Laser Power</h3>
+                    <p>Longer duration & faster recharge</p>
+                    <button class="upgrade-btn">Upgrade</button>
+                </div>
+                <div class="upgrade-card" data-upgrade="health">
+                    <h3>❤️ Max Health</h3>
+                    <p>+25 max HP</p>
+                    <button class="upgrade-btn">Upgrade</button>
+                </div>
+                <div class="upgrade-card" data-upgrade="shield">
+                    <h3>🛡️ Shield</h3>
+                    <p>+25 shield capacity</p>
+                    <button class="upgrade-btn">Upgrade</button>
+                </div>
+                <div class="upgrade-card" data-upgrade="speed">
+                    <h3>⚡ Tank Speed</h3>
+                    <p>Move faster</p>
+                    <button class="upgrade-btn">Upgrade</button>
+                </div>
+                <div class="upgrade-card" data-upgrade="multishot">
+                    <h3>🔫🔫 Multi-Shot Turret</h3>
+                    <p>Double or triple barrel!</p>
+                    <button class="upgrade-btn">Upgrade</button>
+                </div>
+            </div>
+            <button id="nextWaveBtn" class="big-btn">NEXT WAVE</button>
+        </div>
+
+        <div id="gameOverScreen" class="screen hidden">
+            <h2>💀 Game Over 💀</h2>
+            <p id="finalScore">Final Score: 0</p>
+            <p id="finalWave">You survived: 0 waves</p>
+            <p id="finalMoney">Money earned: $0</p>
+            <button id="restartBtn" class="big-btn">PLAY AGAIN</button>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>
