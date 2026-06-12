@@ -617,27 +617,80 @@ class Boss {
         }
 
         const difficulty = 1 + (wave - 1) * 0.4;
-        this.hp = 500 * difficulty;
+        // Boss has much more HP now - tougher to kill
+        this.hp = 1200 * difficulty;
         this.maxHp = this.hp;
-        this.speed = 1.2 * difficulty * difficultyMultiplier;
+        this.speed = 1.8 * difficulty * difficultyMultiplier;
         this.radius = 40;
         this.damage = 25 * difficulty * difficultyMultiplier;
         this.score = 500;
         this.money = 100;
         this.attackCooldown = 0;
         this.phase = 0;
+
+        // Erratic movement properties
+        this.moveTimer = 0;
+        this.moveChangeInterval = 0.8;
+        this.dashCooldown = 0;
+        this.isDashing = false;
+        this.dashTimer = 0;
+        this.dashDirection = new Vector2(0, 0);
+        this.erraticOffset = new Vector2(0, 0);
     }
 
     update(dt, playerPos) {
-        const dir = playerPos.sub(this.pos).normalize();
-        this.pos = this.pos.add(dir.mult(this.speed * dt * 60));
+        this.moveTimer += dt;
+        this.dashCooldown -= dt;
+
+        // Erratic movement - change direction frequently
+        if (this.moveTimer >= this.moveChangeInterval) {
+            this.moveTimer = 0;
+            // Random erratic offset
+            this.erraticOffset = new Vector2(
+                (Math.random() - 0.5) * 200,
+                (Math.random() - 0.5) * 200
+            );
+        }
+
+        // Calculate target with erratic offset
+        const targetPos = playerPos.add(this.erraticOffset);
+        let dir = targetPos.sub(this.pos).normalize();
+
+        // Dash mechanic - boss occasionally dashes toward player
+        if (this.dashCooldown <= 0 && !this.isDashing && Math.random() < 0.02) {
+            this.isDashing = true;
+            this.dashTimer = 0.3;
+            this.dashDirection = playerPos.sub(this.pos).normalize();
+            this.dashCooldown = 3;
+        }
+
+        if (this.isDashing) {
+            // Fast dash!
+            this.pos = this.pos.add(this.dashDirection.mult(this.speed * 4 * dt * 60));
+            this.dashTimer -= dt;
+            if (this.dashTimer <= 0) {
+                this.isDashing = false;
+            }
+        } else {
+            // Normal erratic movement
+            this.pos = this.pos.add(dir.mult(this.speed * dt * 60));
+        }
 
         if (this.attackCooldown > 0) this.attackCooldown -= dt;
 
         // Phase changes based on health
         const healthPercent = this.hp / this.maxHp;
-        if (healthPercent < 0.3) this.phase = 2;
-        else if (healthPercent < 0.6) this.phase = 1;
+        if (healthPercent < 0.3) {
+            this.phase = 2;
+            this.moveChangeInterval = 0.4; // Even more erratic at low health
+        } else if (healthPercent < 0.6) {
+            this.phase = 1;
+            this.moveChangeInterval = 0.6;
+        }
+
+        // Keep boss on screen
+        this.pos.x = Math.max(this.radius, Math.min(canvas.width - this.radius, this.pos.x));
+        this.pos.y = Math.max(this.radius, Math.min(canvas.height - this.radius, this.pos.y));
     }
 
     draw(ctx) {
@@ -792,6 +845,7 @@ class Player {
 
     fireBullets() {
         const barrelOffset = 8;
+        const spreadAngle = 0.12;
 
         if (this.barrelCount === 1) {
             // Single barrel
@@ -816,10 +870,38 @@ class Player {
                     this.bulletSpeed
                 ));
             }
-        } else {
+        } else if (this.barrelCount === 3) {
             // Triple barrel - spread shot
-            const spreadAngle = 0.15;
             for (let i = -1; i <= 1; i++) {
+                const bulletAngle = this.angle + (i * spreadAngle);
+                game.bullets.push(new Bullet(
+                    this.pos.x + Math.cos(bulletAngle) * 35,
+                    this.pos.y + Math.sin(bulletAngle) * 35,
+                    bulletAngle,
+                    this.bulletDamage,
+                    this.bulletSpeed
+                ));
+            }
+        } else if (this.barrelCount === 4) {
+            // Quad barrel - 2x2 pattern
+            const perpAngle = this.angle + Math.PI / 2;
+            for (let i = -1; i <= 1; i += 2) {
+                for (let j = -1; j <= 1; j += 2) {
+                    const offsetX = Math.cos(perpAngle) * barrelOffset * i;
+                    const offsetY = Math.sin(perpAngle) * barrelOffset * i;
+                    const bulletAngle = this.angle + (j * spreadAngle * 0.7);
+                    game.bullets.push(new Bullet(
+                        this.pos.x + Math.cos(bulletAngle) * 35 + offsetX,
+                        this.pos.y + Math.sin(bulletAngle) * 35 + offsetY,
+                        bulletAngle,
+                        this.bulletDamage,
+                        this.bulletSpeed
+                    ));
+                }
+            }
+        } else {
+            // Penta barrel - 5 shots in fan pattern
+            for (let i = -2; i <= 2; i++) {
                 const bulletAngle = this.angle + (i * spreadAngle);
                 game.bullets.push(new Bullet(
                     this.pos.x + Math.cos(bulletAngle) * 35,
@@ -863,11 +945,24 @@ class Player {
             // Double barrel
             ctx.fillRect(8, -12, 30, 8);
             ctx.fillRect(8, 4, 30, 8);
-        } else {
+        } else if (this.barrelCount === 3) {
             // Triple barrel
             ctx.fillRect(8, -14, 28, 7);
             ctx.fillRect(8, -3, 32, 6);
             ctx.fillRect(8, 7, 28, 7);
+        } else if (this.barrelCount === 4) {
+            // Quad barrel
+            ctx.fillRect(8, -15, 28, 6);
+            ctx.fillRect(8, -7, 30, 6);
+            ctx.fillRect(8, 1, 30, 6);
+            ctx.fillRect(8, 9, 28, 6);
+        } else {
+            // Penta barrel
+            ctx.fillRect(8, -16, 26, 5);
+            ctx.fillRect(8, -9, 28, 5);
+            ctx.fillRect(8, -2, 32, 5);
+            ctx.fillRect(8, 5, 28, 5);
+            ctx.fillRect(8, 12, 26, 5);
         }
 
         ctx.shadowBlur = 0;
@@ -1484,10 +1579,12 @@ class Game {
                 this.player.speed += 0.5;
                 break;
             case 'multishot':
-                // Upgrade barrel count: 1 -> 2 -> 3
-                if (this.player.barrelCount < 3) {
+                // Upgrade barrel count: 1 -> 2 -> 3 -> 4 -> 5
+                if (this.player.barrelCount < 5) {
                     this.player.barrelCount++;
                 }
+                // Zombies get tougher with each multishot upgrade
+                this.difficultyMultiplier += 0.15;
                 break;
         }
 
@@ -1520,25 +1617,105 @@ class Game {
 
     gameOver() {
         currentState = GameState.GAMEOVER;
+
+        // Save high score
+        highScoreManager.addScore(currentPlayerName, this.score, this.wave);
+
+        document.getElementById('finalPlayerName').textContent = `Player: ${currentPlayerName}`;
         document.getElementById('finalScore').textContent = `Final Score: ${this.score}`;
         document.getElementById('finalWave').textContent = `You survived: ${this.wave} waves`;
         document.getElementById('finalMoney').textContent = `Money earned: $${this.player.money}`;
+
+        // Render high scores on game over screen
+        highScoreManager.renderScores('gameOverHighScoresList');
+
         gameOverScreen.classList.remove('hidden');
         hud.classList.add('hidden');
     }
 }
 
+// ==================== HIGH SCORE SYSTEM ====================
+
+class HighScoreManager {
+    constructor() {
+        this.storageKey = 'kelmansTanksHighScores';
+        this.scores = this.loadScores();
+    }
+
+    loadScores() {
+        try {
+            const data = localStorage.getItem(this.storageKey);
+            return data ? JSON.parse(data) : [];
+        } catch (e) {
+            return [];
+        }
+    }
+
+    saveScores() {
+        try {
+            localStorage.setItem(this.storageKey, JSON.stringify(this.scores));
+        } catch (e) {
+            console.log('Could not save high scores');
+        }
+    }
+
+    addScore(name, score, wave) {
+        const entry = {
+            name: name || 'Anonymous',
+            score: score,
+            wave: wave,
+            date: new Date().toLocaleDateString()
+        };
+        this.scores.push(entry);
+        // Sort by score descending, keep top 10
+        this.scores.sort((a, b) => b.score - a.score);
+        this.scores = this.scores.slice(0, 10);
+        this.saveScores();
+    }
+
+    getScores() {
+        return this.scores;
+    }
+
+    renderScores(containerId) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        const scores = this.getScores();
+        if (scores.length === 0) {
+            container.innerHTML = '<p class="no-scores">No scores yet. Be the first!</p>';
+            return;
+        }
+
+        let html = '<table class="scores-table">';
+        html += '<tr><th>Rank</th><th>Name</th><th>Score</th><th>Wave</th></tr>';
+        scores.forEach((entry, index) => {
+            const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}.`;
+            html += `<tr><td>${medal}</td><td>${entry.name}</td><td>${entry.score}</td><td>${entry.wave}</td></tr>`;
+        });
+        html += '</table>';
+        container.innerHTML = html;
+    }
+}
+
+const highScoreManager = new HighScoreManager();
+
 // ==================== GAME INSTANCE ====================
 
 const game = new Game();
+let currentPlayerName = '';
 
 // ==================== BUTTON HANDLERS ====================
 
 document.getElementById('startBtn').addEventListener('click', () => {
     soundManager.init();
+    currentPlayerName = document.getElementById('playerName').value.trim() || 'Tank Commander';
     startScreen.classList.add('hidden');
     difficultyScreen.classList.remove('hidden');
 });
+
+// Render high scores on start screen
+highScoreManager.renderScores('highScoresList');
 
 // Difficulty selection
 document.querySelectorAll('.difficulty-btn').forEach(btn => {

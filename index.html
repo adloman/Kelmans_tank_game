@@ -48,6 +48,10 @@
         <div id="startScreen" class="screen">
             <h1>🎀 Kelmans Tanks vs Zombies 🎀</h1>
             <p class="subtitle">Defend against the zombie horde!</p>
+            <div class="name-input-container">
+                <label for="playerName">Enter Your Name:</label>
+                <input type="text" id="playerName" placeholder="Tank Commander" maxlength="15">
+            </div>
             <div class="controls-info">
                 <h3>🖥️ PC Controls:</h3>
                 <p>Arrow Keys / WASD - Move</p>
@@ -60,6 +64,10 @@
                 <p>Buttons - Special Weapons</p>
             </div>
             <button id="startBtn" class="big-btn">START GAME</button>
+            <div id="highScores" class="high-scores">
+                <h3>🏆 High Scores 🏆</h3>
+                <div id="highScoresList"></div>
+            </div>
         </div>
 
         <div id="difficultyScreen" class="screen hidden">
@@ -132,9 +140,14 @@
 
         <div id="gameOverScreen" class="screen hidden">
             <h2>💀 Game Over 💀</h2>
+            <p id="finalPlayerName">Player: </p>
             <p id="finalScore">Final Score: 0</p>
             <p id="finalWave">You survived: 0 waves</p>
             <p id="finalMoney">Money earned: $0</p>
+            <div id="gameOverHighScores" class="high-scores">
+                <h3>🏆 High Scores 🏆</h3>
+                <div id="gameOverHighScoresList"></div>
+            </div>
             <button id="restartBtn" class="big-btn">PLAY AGAIN</button>
         </div>
     </div>

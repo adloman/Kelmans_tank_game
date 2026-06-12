@@ -386,6 +386,98 @@ h2 {
     margin-bottom: 10px;
 }
 
+/* Name Input */
+.name-input-container {
+    margin: 15px 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.name-input-container label {
+    color: #ff69b4;
+    font-size: 1rem;
+    font-weight: bold;
+}
+
+.name-input-container input {
+    background: rgba(255, 105, 180, 0.2);
+    border: 2px solid #ff69b4;
+    border-radius: 25px;
+    padding: 10px 20px;
+    color: #fff;
+    font-size: 1.1rem;
+    text-align: center;
+    width: 250px;
+    outline: none;
+    transition: all 0.3s ease;
+}
+
+.name-input-container input:focus {
+    background: rgba(255, 105, 180, 0.3);
+    box-shadow: 0 0 15px rgba(255, 105, 180, 0.5);
+}
+
+.name-input-container input::placeholder {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* High Scores */
+.high-scores {
+    margin-top: 15px;
+    background: rgba(255, 105, 180, 0.1);
+    border: 2px solid rgba(255, 105, 180, 0.3);
+    border-radius: 15px;
+    padding: 15px;
+    max-width: 400px;
+    width: 100%;
+}
+
+.high-scores h3 {
+    color: #ffd700;
+    margin-bottom: 10px;
+    font-size: 1.1rem;
+}
+
+.scores-table {
+    width: 100%;
+    border-collapse: collapse;
+    color: #e6e6fa;
+    font-size: 0.9rem;
+}
+
+.scores-table th {
+    color: #ff69b4;
+    padding: 5px;
+    border-bottom: 1px solid rgba(255, 105, 180, 0.3);
+}
+
+.scores-table td {
+    padding: 5px;
+    text-align: center;
+}
+
+.scores-table tr:nth-child(2) {
+    color: #ffd700;
+    font-weight: bold;
+}
+
+.scores-table tr:nth-child(3) {
+    color: #c0c0c0;
+    font-weight: bold;
+}
+
+.scores-table tr:nth-child(4) {
+    color: #cd7f32;
+    font-weight: bold;
+}
+
+.no-scores {
+    color: #dda0dd;
+    font-style: italic;
+}
+
 /* Animations */
 @keyframes pulse {
     0%, 100% { transform: scale(1); }
