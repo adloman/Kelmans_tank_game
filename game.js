@@ -617,10 +617,10 @@ class Boss {
         }
 
         const difficulty = 1 + (wave - 1) * 0.4;
-        // Boss has much more HP now - tougher to kill
-        this.hp = 1200 * difficulty;
+        // Boss has MASSIVE HP now - very tough to kill
+        this.hp = 3000 * difficulty;
         this.maxHp = this.hp;
-        this.speed = 1.8 * difficulty * difficultyMultiplier;
+        this.speed = 2.2 * difficulty * difficultyMultiplier;
         this.radius = 40;
         this.damage = 25 * difficulty * difficultyMultiplier;
         this.score = 500;
@@ -630,12 +630,13 @@ class Boss {
 
         // Erratic movement properties
         this.moveTimer = 0;
-        this.moveChangeInterval = 0.8;
+        this.moveChangeInterval = 0.6;
         this.dashCooldown = 0;
         this.isDashing = false;
         this.dashTimer = 0;
         this.dashDirection = new Vector2(0, 0);
         this.erraticOffset = new Vector2(0, 0);
+        this.vel = new Vector2(0, 0);
     }
 
     update(dt, playerPos) {
@@ -647,8 +648,8 @@ class Boss {
             this.moveTimer = 0;
             // Random erratic offset
             this.erraticOffset = new Vector2(
-                (Math.random() - 0.5) * 200,
-                (Math.random() - 0.5) * 200
+                (Math.random() - 0.5) * 300,
+                (Math.random() - 0.5) * 300
             );
         }
 
@@ -657,23 +658,43 @@ class Boss {
         let dir = targetPos.sub(this.pos).normalize();
 
         // Dash mechanic - boss occasionally dashes toward player
-        if (this.dashCooldown <= 0 && !this.isDashing && Math.random() < 0.02) {
+        if (this.dashCooldown <= 0 && !this.isDashing && Math.random() < 0.025) {
             this.isDashing = true;
-            this.dashTimer = 0.3;
+            this.dashTimer = 0.4;
             this.dashDirection = playerPos.sub(this.pos).normalize();
-            this.dashCooldown = 3;
+            this.dashCooldown = 2.5;
         }
 
         if (this.isDashing) {
             // Fast dash!
-            this.pos = this.pos.add(this.dashDirection.mult(this.speed * 4 * dt * 60));
+            this.vel = this.dashDirection.mult(this.speed * 5);
             this.dashTimer -= dt;
             if (this.dashTimer <= 0) {
                 this.isDashing = false;
             }
         } else {
             // Normal erratic movement
-            this.pos = this.pos.add(dir.mult(this.speed * dt * 60));
+            this.vel = dir.mult(this.speed);
+        }
+
+        // Apply velocity
+        this.pos = this.pos.add(this.vel.mult(dt * 60));
+
+        // BOUNCE off screen edges!
+        if (this.pos.x - this.radius < 0) {
+            this.pos.x = this.radius;
+            this.vel.x = Math.abs(this.vel.x);
+        } else if (this.pos.x + this.radius > canvas.width) {
+            this.pos.x = canvas.width - this.radius;
+            this.vel.x = -Math.abs(this.vel.x);
+        }
+
+        if (this.pos.y - this.radius < 0) {
+            this.pos.y = this.radius;
+            this.vel.y = Math.abs(this.vel.y);
+        } else if (this.pos.y + this.radius > canvas.height) {
+            this.pos.y = canvas.height - this.radius;
+            this.vel.y = -Math.abs(this.vel.y);
         }
 
         if (this.attackCooldown > 0) this.attackCooldown -= dt;
@@ -682,15 +703,12 @@ class Boss {
         const healthPercent = this.hp / this.maxHp;
         if (healthPercent < 0.3) {
             this.phase = 2;
-            this.moveChangeInterval = 0.4; // Even more erratic at low health
+            this.moveChangeInterval = 0.3; // Even more erratic at low health
+            this.speed *= 1.01; // Slowly speed up when low HP
         } else if (healthPercent < 0.6) {
             this.phase = 1;
-            this.moveChangeInterval = 0.6;
+            this.moveChangeInterval = 0.45;
         }
-
-        // Keep boss on screen
-        this.pos.x = Math.max(this.radius, Math.min(canvas.width - this.radius, this.pos.x));
-        this.pos.y = Math.max(this.radius, Math.min(canvas.height - this.radius, this.pos.y));
     }
 
     draw(ctx) {
@@ -1532,15 +1550,16 @@ class Game {
 
     getUpgradeCost(type, level) {
         const baseCosts = {
-            bullet: 20,
-            bomb: 30,
-            laser: 35,
-            health: 15,
-            shield: 25,
-            speed: 20,
-            multishot: 50
+            bullet: 50,
+            bomb: 75,
+            laser: 80,
+            health: 40,
+            shield: 60,
+            speed: 50,
+            multishot: 120
         };
-        return Math.floor(baseCosts[type] * (1 + level * 0.5));
+        // Exponential cost increase - much more expensive at higher levels
+        return Math.floor(baseCosts[type] * Math.pow(1.8, level));
     }
 
     applyUpgrade(type) {
