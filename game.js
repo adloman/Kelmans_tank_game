@@ -617,70 +617,89 @@ class Boss {
         }
 
         const difficulty = 1 + (wave - 1) * 0.4;
-        // Boss has MASSIVE HP now - very tough to kill
-        this.hp = 3000 * difficulty;
+        // Boss has ENORMOUS HP - a long, epic fight
+        this.hp = 6000 * difficulty;
         this.maxHp = this.hp;
-        this.speed = 2.2 * difficulty * difficultyMultiplier;
-        this.radius = 40;
+        // Moderate speed - can be hit with bullets but not trivial
+        this.speed = 1.5 * difficulty * difficultyMultiplier;
+        this.radius = 45;
         this.damage = 25 * difficulty * difficultyMultiplier;
         this.score = 500;
-        this.money = 100;
+        this.money = 150;
         this.attackCooldown = 0;
         this.phase = 0;
 
-        // Erratic movement properties
-        this.moveTimer = 0;
-        this.moveChangeInterval = 0.6;
-        this.dashCooldown = 0;
-        this.isDashing = false;
-        this.dashTimer = 0;
-        this.dashDirection = new Vector2(0, 0);
-        this.erraticOffset = new Vector2(0, 0);
+        // Smooth movement
         this.vel = new Vector2(0, 0);
+
+        // Bomb resistance
+        this.bombResistance = 0.15;
+
+        // Growth mechanic - every 5 hits = growth stage
+        this.hitCount = 0;
+        this.growthStage = 0;
+        this.baseRadius = 45;
+        this.hitsPerGrowth = 5;
+        // Max stage: boss grows until radius is 1/3 of the smaller screen dimension
+        this.maxScreenSize = Math.min(canvas.width, canvas.height) / 3;
+        this.maxGrowthStage = 8;
+
+        // Fire ring
+        this.fireParticles = [];
+        for (let i = 0; i < 16; i++) {
+            this.fireParticles.push({
+                angle: (i / 16) * Math.PI * 2,
+                offset: this.radius + 15,
+                speed: 2 + Math.random() * 1.5
+            });
+        }
+    }
+
+    onHit() {
+        this.hitCount++;
+        if (this.hitCount >= this.hitsPerGrowth) {
+            this.hitCount = 0;
+            this.grow();
+        }
+    }
+
+    grow() {
+        this.growthStage++;
+        if (this.growthStage > this.maxGrowthStage) {
+            // MAXED OUT - boss explodes!
+            this.hp = 0;
+            return;
+        }
+
+        // Grow bigger each stage
+        this.radius = this.baseRadius + (this.growthStage * 20);
+        this.speed *= 1.05; // Slightly faster as he grows
+
+        // Update fire ring offset to match new size
+        this.fireParticles.forEach(p => {
+            p.offset = this.radius + 15 + (this.growthStage * 5);
+        });
+
+        // Screen shake to signal growth
+        game.shakeAmount = 15;
+
+        // Heal a bit when growing (makes fight longer)
+        const healAmount = this.maxHp * 0.05;
+        this.hp = Math.min(this.maxHp, this.hp + healAmount);
+
+        // Big explosion burst when growing
+        game.addExplosion(this.pos.x, this.pos.y, this.radius * 1.5, '#ff4500');
     }
 
     update(dt, playerPos) {
-        this.moveTimer += dt;
-        this.dashCooldown -= dt;
-
-        // Erratic movement - change direction frequently
-        if (this.moveTimer >= this.moveChangeInterval) {
-            this.moveTimer = 0;
-            // Random erratic offset
-            this.erraticOffset = new Vector2(
-                (Math.random() - 0.5) * 300,
-                (Math.random() - 0.5) * 300
-            );
-        }
-
-        // Calculate target with erratic offset
-        const targetPos = playerPos.add(this.erraticOffset);
-        let dir = targetPos.sub(this.pos).normalize();
-
-        // Dash mechanic - boss occasionally dashes toward player
-        if (this.dashCooldown <= 0 && !this.isDashing && Math.random() < 0.025) {
-            this.isDashing = true;
-            this.dashTimer = 0.4;
-            this.dashDirection = playerPos.sub(this.pos).normalize();
-            this.dashCooldown = 2.5;
-        }
-
-        if (this.isDashing) {
-            // Fast dash!
-            this.vel = this.dashDirection.mult(this.speed * 5);
-            this.dashTimer -= dt;
-            if (this.dashTimer <= 0) {
-                this.isDashing = false;
-            }
-        } else {
-            // Normal erratic movement
-            this.vel = dir.mult(this.speed);
-        }
+        // Smoothly track toward the player
+        const dir = playerPos.sub(this.pos).normalize();
+        this.vel = dir.mult(this.speed);
 
         // Apply velocity
         this.pos = this.pos.add(this.vel.mult(dt * 60));
 
-        // BOUNCE off screen edges!
+        // Bounce off screen edges
         if (this.pos.x - this.radius < 0) {
             this.pos.x = this.radius;
             this.vel.x = Math.abs(this.vel.x);
@@ -703,15 +722,32 @@ class Boss {
         const healthPercent = this.hp / this.maxHp;
         if (healthPercent < 0.3) {
             this.phase = 2;
-            this.moveChangeInterval = 0.3; // Even more erratic at low health
-            this.speed *= 1.01; // Slowly speed up when low HP
         } else if (healthPercent < 0.6) {
             this.phase = 1;
-            this.moveChangeInterval = 0.45;
         }
+
+        // Update fire ring
+        this.fireParticles.forEach(p => {
+            p.angle += p.speed * dt;
+        });
     }
 
     draw(ctx) {
+        // Draw fire ring - rotating flames around the boss
+        this.fireParticles.forEach(p => {
+            const fx = this.pos.x + Math.cos(p.angle) * p.offset;
+            const fy = this.pos.y + Math.sin(p.angle) * p.offset;
+            const flicker = 0.6 + Math.sin(p.angle * 5 + Date.now() / 100) * 0.4;
+
+            ctx.fillStyle = `rgba(255, ${Math.floor(100 + Math.random() * 80)}, 0, ${flicker})`;
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#ff4500';
+            ctx.beginPath();
+            ctx.arc(fx, fy, 6 + Math.random() * 4, 0, Math.PI * 2);
+            ctx.fill();
+        });
+        ctx.shadowBlur = 0;
+
         // Boss body
         const colors = ['#ff0000', '#ff4500', '#ff1493'];
         ctx.fillStyle = colors[this.phase];
@@ -722,14 +758,25 @@ class Boss {
         ctx.arc(this.pos.x, this.pos.y, this.radius, 0, Math.PI * 2);
         ctx.fill();
 
+        // Growth stage visual - rings around boss showing stage
+        if (this.growthStage > 0) {
+            ctx.strokeStyle = `rgba(255, 200, 0, ${0.3 + Math.sin(Date.now() / 300) * 0.2})`;
+            ctx.lineWidth = 2;
+            for (let s = 0; s < Math.min(this.growthStage, 5); s++) {
+                ctx.beginPath();
+                ctx.arc(this.pos.x, this.pos.y, this.radius + 8 + s * 5, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+        }
+
         // Spikes
         for (let i = 0; i < 8; i++) {
-            const angle = (Date.now() / 500) + (i * Math.PI / 4);
+            const spikeAngle = (Date.now() / 500) + (i * Math.PI / 4);
             ctx.beginPath();
-            ctx.moveTo(this.pos.x + Math.cos(angle) * this.radius,
-                      this.pos.y + Math.sin(angle) * this.radius);
-            ctx.lineTo(this.pos.x + Math.cos(angle) * (this.radius + 15),
-                      this.pos.y + Math.sin(angle) * (this.radius + 15));
+            ctx.moveTo(this.pos.x + Math.cos(spikeAngle) * this.radius,
+                      this.pos.y + Math.sin(spikeAngle) * this.radius);
+            ctx.lineTo(this.pos.x + Math.cos(spikeAngle) * (this.radius + 15 + this.growthStage * 3),
+                      this.pos.y + Math.sin(spikeAngle) * (this.radius + 15 + this.growthStage * 3));
             ctx.lineWidth = 4;
             ctx.strokeStyle = colors[this.phase];
             ctx.stroke();
@@ -739,16 +786,17 @@ class Boss {
 
         // Eyes
         ctx.fillStyle = '#ffff00';
-        const angle = Math.atan2(game.player.pos.y - this.pos.y, game.player.pos.x - this.pos.x);
+        const eyeAngle = Math.atan2(game.player.pos.y - this.pos.y, game.player.pos.x - this.pos.x);
+        const eyeOffset = this.radius * 0.35;
         ctx.beginPath();
-        ctx.arc(this.pos.x + Math.cos(angle - 0.4) * 15,
-                this.pos.y + Math.sin(angle - 0.4) * 15, 6, 0, Math.PI * 2);
-        ctx.arc(this.pos.x + Math.cos(angle + 0.4) * 15,
-                this.pos.y + Math.sin(angle + 0.4) * 15, 6, 0, Math.PI * 2);
+        ctx.arc(this.pos.x + Math.cos(eyeAngle - 0.4) * eyeOffset,
+                this.pos.y + Math.sin(eyeAngle - 0.4) * eyeOffset, 6, 0, Math.PI * 2);
+        ctx.arc(this.pos.x + Math.cos(eyeAngle + 0.4) * eyeOffset,
+                this.pos.y + Math.sin(eyeAngle + 0.4) * eyeOffset, 6, 0, Math.PI * 2);
         ctx.fill();
 
         // Health bar
-        const barWidth = this.radius * 2.5;
+        const barWidth = Math.max(80, this.radius * 2);
         const barHeight = 8;
         ctx.fillStyle = '#333';
         ctx.fillRect(this.pos.x - barWidth/2, this.pos.y - this.radius - 15, barWidth, barHeight);
@@ -757,10 +805,22 @@ class Boss {
         ctx.strokeStyle = '#fff';
         ctx.lineWidth = 1;
         ctx.strokeRect(this.pos.x - barWidth/2, this.pos.y - this.radius - 15, barWidth, barHeight);
+
+        // Growth indicator
+        ctx.fillStyle = '#ffd700';
+        ctx.font = 'bold 12px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(`🔥 x${this.growthStage}/${this.maxGrowthStage}`, this.pos.x, this.pos.y - this.radius - 25);
     }
 
     takeDamage(damage) {
         this.hp -= damage;
+
+        // Check if growth has maxed out (explosion condition)
+        if (this.growthStage > this.maxGrowthStage) {
+            return true; // Dead from overgrowth explosion
+        }
+
         return this.hp <= 0;
     }
 }
@@ -792,7 +852,7 @@ class Player {
 
         this.laserCount = 2;
         this.maxLasers = 2;
-        this.laserDuration = 1;
+        this.laserDuration = 2.5; // Longer lasting laser
         this.laserCooldown = 0;
         this.laserRechargeTime = 15;
 
@@ -1254,20 +1314,45 @@ class Game {
                     const isBoss = zombie instanceof Boss;
                     if (isBoss) {
                         soundManager.bossHit();
+                        zombie.onHit(); // Growth mechanic
                     }
 
                     if (zombie.takeDamage(damage)) {
+                        // Dramatic boss explosion if from overgrowth
+                        if (isBoss && zombie.growthStage > zombie.maxGrowthStage) {
+                            this.addExplosion(zombie.pos.x, zombie.pos.y, 200, '#ff0000');
+                            this.addExplosion(zombie.pos.x, zombie.pos.y, 150, '#ffd700');
+                            for (let e = 0; e < 50; e++) {
+                                this.particles.push(new Particle(
+                                    zombie.pos.x, zombie.pos.y,
+                                    Math.random() > 0.5 ? '#ff0000' : '#ffd700',
+                                    Math.random() * 10 + 5, Math.random() * 1.0 + 0.5
+                                ));
+                            }
+                            this.shakeAmount = 30;
+                            // Lots of money on overgrowth explosion!
+                            for (let c = 0; c < 40; c++) {
+                                this.coins.push(new Coin(
+                                    zombie.pos.x + (Math.random() - 0.5) * 150,
+                                    zombie.pos.y + (Math.random() - 0.5) * 150,
+                                    Math.floor(Math.random() * 10) + 5
+                                ));
+                            }
+                        } else {
+                            this.addExplosion(zombie.pos.x, zombie.pos.y, 30, zombie.color);
+                        }
                         this.score += zombie.score;
-                        this.addExplosion(zombie.pos.x, zombie.pos.y, 30, zombie.color);
                         soundManager.zombieDeath();
 
                         // Drop coins
-                        for (let c = 0; c < Math.floor(zombie.money / 5); c++) {
-                            this.coins.push(new Coin(
-                                zombie.pos.x + (Math.random() - 0.5) * 30,
-                                zombie.pos.y + (Math.random() - 0.5) * 30,
-                                5
-                            ));
+                        if (!isBoss) {
+                            for (let c = 0; c < Math.floor(zombie.money / 5); c++) {
+                                this.coins.push(new Coin(
+                                    zombie.pos.x + (Math.random() - 0.5) * 30,
+                                    zombie.pos.y + (Math.random() - 0.5) * 30,
+                                    5
+                                ));
+                            }
                         }
 
                         // Mark boss as defeated
@@ -1302,7 +1387,9 @@ class Game {
                 for (let i = this.zombies.length - 1; i >= 0; i--) {
                     const zombie = this.zombies[i];
                     if (bomb.pos.dist(zombie.pos) < bomb.explosionCurrentRadius + zombie.radius) {
-                        if (zombie.takeDamage(200)) {
+                        // Boss is bomb-resistant - takes only a fraction of bomb damage
+                        const bombDmg = zombie instanceof Boss ? Math.floor(200 * zombie.bombResistance) : 200;
+                        if (zombie.takeDamage(bombDmg)) {
                             this.score += zombie.score;
                             this.addExplosion(zombie.pos.x, zombie.pos.y, 20, zombie.color);
                             soundManager.zombieDeath();
@@ -1330,34 +1417,128 @@ class Game {
             return bomb.life > 0;
         });
 
-        // Update lasers
+        // Update lasers - pierces through zombies with bleed money
         this.lasers = this.lasers.filter(laser => {
             laser.update(dt);
 
-            // Damage zombies in laser path
+            // Damage ALL zombies in laser path (piercing beam)
             const line = laser.getLine();
             for (let i = this.zombies.length - 1; i >= 0; i--) {
                 const zombie = this.zombies[i];
                 const dist = this.pointToLineDistance(zombie.pos, line);
 
                 if (dist < zombie.radius + laser.width / 2) {
-                    if (zombie.takeDamage(5)) {
-                        this.score += zombie.score;
-                        this.addExplosion(zombie.pos.x, zombie.pos.y, 20, zombie.color);
-                        soundManager.zombieDeath();
+                    // Laser continuously damages - doesn't stop at first zombie
+                    const dead = zombie.takeDamage(dt * 40); // 40 DPS
 
-                        // Drop coins
-                        const isBoss = zombie instanceof Boss;
-                        for (let c = 0; c < Math.floor(zombie.money / 5); c++) {
-                            this.coins.push(new Coin(
-                                zombie.pos.x + (Math.random() - 0.5) * 30,
-                                zombie.pos.y + (Math.random() - 0.5) * 30,
-                                5
-                            ));
+                    // Boss onHit with cooldown for laser (every 0.4s to count as a "hit")
+                    if (zombie instanceof Boss) {
+                        if (!zombie._laserHitCooldown) zombie._laserHitCooldown = 0;
+                        zombie._laserHitCooldown += dt;
+                        if (zombie._laserHitCooldown >= 0.4) {
+                            zombie._laserHitCooldown = 0;
+                            zombie.onHit();
+                            soundManager.bossHit();
                         }
+                    }
+
+                    // Bleed money - laser makes zombies drop extra cash!
+                    if (!zombie._laserBleedTimer) zombie._laserBleedTimer = 0;
+                    zombie._laserBleedTimer += dt;
+                    if (zombie._laserBleedTimer >= 0.3) { // Drip money every 0.3s
+                        zombie._laserBleedTimer = 0;
+                        const bleedCoin = Math.floor(Math.random() * 4) + 3; // $3-$6 per tick (more money)
+                        this.coins.push(new Coin(
+                            zombie.pos.x + (Math.random() - 0.5) * 20,
+                            zombie.pos.y + (Math.random() - 0.5) * 20,
+                            bleedCoin
+                        ));
+                        this.floatingTexts.push(new FloatingText(
+                            zombie.pos.x, zombie.pos.y - 10,
+                            `+$${bleedCoin}`, '#00ff00'
+                        ));
+                    }
+
+                    if (dead) {
+                        const isBoss = zombie instanceof Boss;
 
                         if (isBoss) {
-                            this.bossDefeated = true;
+                             // Boss drops lots of coins
+                             for (let c = 0; c < 20; c++) {
+                                 this.coins.push(new Coin(
+                                     zombie.pos.x + (Math.random() - 0.5) * 80,
+                                     zombie.pos.y + (Math.random() - 0.5) * 80,
+                                     10
+                                 ));
+                             }
+                             this.score += zombie.score;
+                             // Dramatic boss explosion from overgrowth
+                             if (zombie.growthStage > zombie.maxGrowthStage) {
+                                 this.addExplosion(zombie.pos.x, zombie.pos.y, 200, '#ff0000');
+                                 this.addExplosion(zombie.pos.x, zombie.pos.y, 150, '#ffd700');
+                                 for (let e = 0; e < 50; e++) {
+                                     this.particles.push(new Particle(
+                                         zombie.pos.x, zombie.pos.y,
+                                         Math.random() > 0.5 ? '#ff0000' : '#ffd700',
+                                         Math.random() * 10 + 5, Math.random() * 1.0 + 0.5
+                                     ));
+                                 }
+                                 this.shakeAmount = 30;
+                             } else {
+                                 this.addExplosion(zombie.pos.x, zombie.pos.y, 100, '#ff0000');
+                                 this.addExplosion(zombie.pos.x, zombie.pos.y, 70, '#ffd700');
+                                 this.shakeAmount = 20;
+                             }
+                             this.bossDefeated = true;
+                        } else {
+                            // LASER SPLITTER! Instead of dying, split into 2 smaller zombies
+                            if (!zombie._isSplit) {
+                                // Don't split the already-split ones (prevent infinite loop)
+                                for (let s = 0; s < 2; s++) {
+                                    const splitZombie = new Zombie(
+                                        zombie.pos.x + (Math.random() - 0.5) * 40,
+                                        zombie.pos.y + (Math.random() - 0.5) * 40,
+                                        zombie.type === 'tank' ? 'normal' : zombie.type,
+                                        zombie.wave,
+                                        zombie.wave * 0.1 + 0.5
+                                    );
+                                    splitZombie.radius = Math.max(10, zombie.radius * 0.6);
+                                    splitZombie.hp = Math.max(15, zombie.hp * 0.4);
+                                    splitZombie.maxHp = splitZombie.hp;
+                                    splitZombie.speed = zombie.speed * 1.3;
+                                    splitZombie.money = Math.floor(zombie.money * 0.7);
+                                    splitZombie.score = Math.floor(zombie.score * 0.6);
+                                    splitZombie._isSplit = true; // Flag to prevent re-splitting
+                                    splitZombie.color = '#ff69b4';
+                                    this.zombies.push(splitZombie);
+                                }
+                                // Still get money for the split!
+                                const splitMoney = Math.floor(zombie.money * 0.6);
+                                this.score += Math.floor(zombie.score * 0.4);
+                                for (let c = 0; c < Math.floor(splitMoney / 5); c++) {
+                                    this.coins.push(new Coin(
+                                        zombie.pos.x + (Math.random() - 0.5) * 30,
+                                        zombie.pos.y + (Math.random() - 0.5) * 30,
+                                        5
+                                    ));
+                                }
+                                this.floatingTexts.push(new FloatingText(
+                                    zombie.pos.x, zombie.pos.y - 20,
+                                    `💥 SPLIT! +$${splitMoney}`, '#ff69b4'
+                                ));
+                            } else {
+                                // Already-split ones just die normally
+                                this.score += zombie.score;
+                                for (let c = 0; c < Math.floor(zombie.money / 5); c++) {
+                                    this.coins.push(new Coin(
+                                        zombie.pos.x + (Math.random() - 0.5) * 30,
+                                        zombie.pos.y + (Math.random() - 0.5) * 30,
+                                        5
+                                    ));
+                                }
+                            }
+                            this.addExplosion(zombie.pos.x, zombie.pos.y, 15, zombie.color);
+                            soundManager.zombieDeath();
                         }
 
                         this.zombies.splice(i, 1);
